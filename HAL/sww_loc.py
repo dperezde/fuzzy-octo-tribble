@@ -28,7 +28,7 @@ class STT:
 def plotter(stt_list,length):
     
     for i in length:
-        ax.scatter(xs, ys, zs, c=c, marker=m)
+        ax.scatter(xs, ys, zs, c=c, marker=n)
         
         ax.set_xlabel('East')        
         ax.set_ylabel('North')
@@ -36,41 +36,45 @@ def plotter(stt_list,length):
         
     plt.show()
 
-east = 9527000
-north = 10574960
-elevation = 100000
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-n = 1000
-c = 'g'
-m = 'o'
+def temp:
+    east = 9527000
+    north = 10574960
+    elevation = 100000
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    n = 1000
+    c = 'g'
+    n = 'o'
 
-global j
-j = STT()
-with open('stt_loc.csv', 'rb') as csvfile:
-    tags = csv.reader(csvfile,delimiter=';', quotechar='"')
+    global j
+    j = STT()
+    with open('stt_loc.csv', 'rb') as csvfile:
+        tags = csv.reader(csvfile,delimiter=';', quotechar='"')
         
 
-    coords = [[int(col[1]) - east, int(col[2]) - north, int(col[3]) - elevation] for col in tags]
-    arr = np.array([[c for c in row] for row in coords])
+        coords = [[int(col[1]) - east, int(col[2]) - north, int(col[3]) - elevation] for col in tags]
+        arr = np.array([[c for c in row] for row in coords])
 
 #print arr
 
-D = pdist(arr)
-D = squareform(D)
+    D = pdist(arr)
+    D = squareform(D)
 #N, [I_row, I_col] = nanmax(D), unravel_index( argmax(D), D.shape)
 
 
 
-with open('stt_loc.csv', 'rb') as csvfile:
-    tags = csv.reader(csvfile,delimiter=';', quotechar='"')
-    tag = [col[0] for col in tags]
+    with open('stt_loc.csv', 'rb') as csvfile:
+        tags = csv.reader(csvfile,delimiter=';', quotechar='"')
+        tag = [col[0] for col in tags]
 
 #print tag
-loop1 = list(D[0,:])
+    loop1 = list(D[0,:])
 
-for i in xrange(40):
-    print loop1.index(min(loop1))
-    loop1[loop1.index(min(loop1))]= max(loop1)
+    for i in xrange(40):
+        print loop1.index(min(loop1))
+        loop1[loop1.index(min(loop1))]= max(loop1)
     
+
+
+
 
