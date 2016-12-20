@@ -13,6 +13,7 @@ from functools import reduce
 import math
 import random
 
+import operator
 
 iteration_points = []
 
@@ -90,7 +91,7 @@ class Cluster:
         # Set up the initial centroid (this is usually based off one point)
         self.centroid = self.calculateCentroid()
 
-        self.p_dist = []
+        self.p_dist = {}
 
         self.clust_size = cluster_size
 
@@ -133,6 +134,29 @@ class Cluster:
         centroid_coords = [math.fsum(dList)/numPoints for dList in unzipped]
         
         return Point(centroid_coords)
+
+
+def kmeans2(points, k, cutoff, cluster_size):
+    #Choose random initial centroids
+    initial = random.sample(points, k)
+
+    # Create k clusters, one for each centroid
+    clusters = [Cluster([p], cluster_size) for p in initial]
+
+    for c in clusters:
+        pos = 0
+        for p in points:
+            p_dist = {}
+            p_dist[pos] = getDistance(p, clusters[0].centroid)
+
+            p_dist_sort = sorted(p_dist.items(), key = operator.itemgetter(1))
+
+            c.p_dist = p_dist_sort[:40]
+
+            print (c.p_dist)
+
+
+
 
 
 def kmeans(points, k, cutoff, cluster_size):
@@ -309,7 +333,8 @@ def main():
 
     points = [Point(arr[i]) for i in range(len(arr))]
 
-    
+    kmeans2(points, n_clusters, opt_cutoff, cluster_size) 
+    exit
 
     clusters, iterations = kmeans(points, n_clusters, opt_cutoff, cluster_size)
 
