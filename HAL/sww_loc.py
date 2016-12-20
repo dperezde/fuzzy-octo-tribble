@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 from scipy import spatial
 import csv
 import numpy as np
@@ -35,6 +35,7 @@ def getDistance(a, b):
     Euclidean distance between two n-dimensional points.
     Note: This can be very slow and does not scale well
     '''
+    print ("a.n is ", a.n, " and b.n is ", b.n)
     if a.n != b.n:
         raise Exception("ILLEGAL: non comparable points")
     
@@ -70,7 +71,7 @@ class Cluster:
     A set of points and their centroid
     '''
     
-    def __init__(self, points):
+    def __init__(self, points, cluster_size):
         '''
         points - A list of point objects
         '''
@@ -88,7 +89,20 @@ class Cluster:
             
         # Set up the initial centroid (this is usually based off one point)
         self.centroid = self.calculateCentroid()
-        
+
+        self.p_dist = []
+
+        self.clust_size = cluster_size
+
+    def append_dist(self, d):
+        self.p_dist.append(d)
+
+    def pop_dist(self, d):
+        self.p_dist_arr.pop(d)
+   
+    def get_clust_size(self):
+        return self.clust_size
+
     def __repr__(self):
         '''
         String representation of this object
@@ -121,14 +135,13 @@ class Cluster:
         return Point(centroid_coords)
 
 
-def kmeans(points, k, cutoff):
-    
+def kmeans(points, k, cutoff, cluster_size):
+    global max_loop 
     # Pick out k random points to use as our initial centroids
     initial = random.sample(points, k)
 #    print(initial) 
     # Create k clusters using those centroids
-    clusters = [Cluster([p]) for p in initial]
-    
+    clusters = [Cluster([p], cluster_size) for p in initial]
     # Loop through the dataset until the clusters stabilize
     loopCounter = 0
     while True:
@@ -144,6 +157,7 @@ def kmeans(points, k, cutoff):
             # Get the distance between that point and the centroid of the first
             # cluster.
             smallest_distance = getDistance(p, clusters[0].centroid)
+            clusters[0].append_dist(smallest_distance)
         
             # Set the cluster this point belongs to
             clusterIndex = 0
@@ -153,13 +167,31 @@ def kmeans(points, k, cutoff):
                 # calculate the distance of that point to each other cluster's
                 # centroid.
                 distance = getDistance(p, clusters[i+1].centroid)
-                # If it's closer to that cluster's centroid update what we
-                # think the smallest distance is, and set the point to belong
-                # to that cluster
-                if distance < smallest_distance:
-                    smallest_distance = distance
-                    clusterIndex = i+1
-            lists[clusterIndex].append(p)
+                if len(clusters[i+1].p_dist) < clusters[i+1].clust_size:
+                    max_loop = 0
+                    # If it's closer to that cluster's centroid update what we
+                    # think the smallest distance is, and set the point to belong
+                    # to that cluster
+                    if distance < smallest_distance:
+                        smallest_distance = distance
+                        clusterIndex = i+1
+
+                        clusters[i+1].p_dist.append(distance)
+                else:
+                    max_loop = 1
+                    if distance < smallest_distance:
+                        for d in clusters[i+1].p_dist:
+                            if max(distance, d) != distance:
+                                print(clusters[i+1].p_dist)
+                                print(d)
+                                print(clusters[i+1].p_dist.index(d))
+                                clusters[i+1].p_dist.remove(d)
+                                print(clusters[i+1].p_dist)
+                                smallest_distance = distance
+                                clusterIndex = i+1
+
+            if max_loop == 0:
+                lists[clusterIndex].append(p)
         
         # Set our biggest_shift to zero for this iteration
         biggest_shift = 0.0
@@ -203,6 +235,14 @@ def kmeans(points, k, cutoff):
 
     return clusters, loopCounter-1
 
+def round_up_arr(arr, size):
+    i = size - len(arr)
+    if i > 0:
+        while i > 0:
+            arr.append(arr[len(arr)-1])
+            i -= 1
+
+    return arr
 
 def give_me_loops():
 
@@ -259,19 +299,19 @@ def main():
 
     n_clusters = 20
 
-    opt_cutoff = 0.5
+    opt_cutoff = 0.01
 
     arr = gen_arr()
 
-    lower = 0
-    upper = 300
-    num_points = 300
+    cluster_size = 40
+
+#    arr = round_up_arr(arr, cluster_size * n_clusters)
 
     points = [Point(arr[i]) for i in range(len(arr))]
 
     
 
-    clusters, iterations = kmeans(points, n_clusters, opt_cutoff)
+    clusters, iterations = kmeans(points, n_clusters, opt_cutoff, cluster_size)
 
     fig = plt.figure()
     ax = fig.add_subplot(111,projection = '3d')
@@ -283,13 +323,14 @@ def main():
         color_sel = colors[np.random.randint(0,7)]
         for p in cl.points:
             print (" Cluster: ", i, "\t Point:", p, "\t Cluster size:", len(cl.points))
+            col = colors[(i%7)]
             if i == 0:
-                col = 'r'
+                col = colors[0]
             if i == 1:
-                col = 'g'
+                col = colors[1]
             ax.scatter(p.coords[0], p.coords[1], p.coords[2], c = col)
-            if i > 1:
-                break
+            #if i > 8:
+            #    break
 
 
 
