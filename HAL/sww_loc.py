@@ -8,6 +8,8 @@ from collections import Counter
 import matplotlib as mpl
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
+import matplotlib.cm as cmx
+import matplotlib.colors as colors
 
 from functools import reduce
 import math
@@ -15,6 +17,8 @@ import random
 
 import operator
 
+from itertools import islice
+from copy import deepcopy
 iteration_points = []
 
 iteration_centroids = []
@@ -31,12 +35,18 @@ def gen_arr():
 
     return arr
 
+
+# Itertools Recipes
+# https://docs.python.org/3/library/itertools.html#itertools-recipes
+def take(n, iterable):
+    "Return first n items of the iterable as a list"
+    return list(islice(iterable, n))
+
 def getDistance(a, b):
     '''
     Euclidean distance between two n-dimensional points.
     Note: This can be very slow and does not scale well
     '''
-    print ("a.n is ", a.n, " and b.n is ", b.n)
     if a.n != b.n:
         raise Exception("ILLEGAL: non comparable points")
     
@@ -136,26 +146,71 @@ class Cluster:
         return Point(centroid_coords)
 
 
-def kmeans2(points, k, cutoff, cluster_size):
+def kmeans2(real_points, k, cutoff, cluster_size):
     #Choose random initial centroids
-    initial = random.sample(points, k)
+    initial = random.sample(real_points, k)
+    
 
     # Create k clusters, one for each centroid
     clusters = [Cluster([p], cluster_size) for p in initial]
 
-    for c in clusters:
-        pos = 0
-        for p in points:
-            p_dist = {}
-            p_dist[pos] = getDistance(p, clusters[0].centroid)
+    # Copy of the actual points on which we'll work to optimize the clusters
+    points = deepcopy(real_points)
 
+    it_count = 1
+
+
+    while True:
+        points = deepcopy(real_points)
+        biggest_shift = 0.0
+
+        print ("Iteration number: ", it_count)
+        #input("Pause")
+        for c in clusters:
+            pos = 0
+            p_dist = {}
+            for p in points:
+                if p.coords[0] != float("inf") :
+
+                    #For each centroid get the distance to all the points
+                    p_dist[pos] = getDistance(p, c.centroid)
+                pos +=1
+            
+            # Sort the centroid-points distance array
             p_dist_sort = sorted(p_dist.items(), key = operator.itemgetter(1))
 
-            c.p_dist = p_dist_sort[:40]
+            # Grab the closest subset of size cluster_size
+            c.p_dist = take(cluster_size, p_dist_sort)
 
-            print (c.p_dist)
+#            print (c.p_dist)
+
+            new_points = []
+            for k,v in c.p_dist:
+                new_points.append(real_points[k])
+
+                # Discard the selected points for the rest of the clusters for
+                # this run
+                points[k].n = 3
+                points[k].coords[0] = float("inf")
+                points[k].coords[1] = float("inf")
+                points[k].coords[2] = float("inf")
+            
 
 
+#            print ("NEW POINTS IS: ", new_points)
+            # Update the cluster with the new selected points and calculate the
+            # centroid's shift
+            shift = c.update(new_points)
+            print ("Shift is ", shift)
+            biggest_shift = max(biggest_shift, shift)
+        
+        if biggest_shift < cutoff:
+            print ("Converged after {:d} iterations".format(it_count))
+            break
+
+        it_count += 1
+
+    return clusters, it_count
 
 
 
@@ -314,48 +369,65 @@ def give_me_loops():
 
     plt.show()
 
+# http://stackoverflow.com/questions/14720331/how-to-generate-random-colors-in-matplotlib
+def get_cmap(N):
+    '''Returns a function that maps each index in 0, 1, ... N-1 to a
+    distinct 
+    RGB color.'''
+    color_norm  = colors.Normalize(vmin=0, vmax=N-1)
+    scalar_map = cmx.ScalarMappable(norm=color_norm, cmap='hsv') 
+    def map_index_to_rgb_color(index):
+        return scalar_map.to_rgba(index)
+
+    return map_index_to_rgb_color
+
+def write_csv_loop(l, position):
+    loop = []
+    with open('stt_loc.csv', 'rt') as csvfile:
+        tags = csv.reader(csvfile, delimiter=';', quotechar = '"')
+        for i, line in enumerate(tags):
+            if i == position:
+                loop.append(line)
+    fname = 'loop{:d}.csv'.format(l)
+    with open(fname, 'a') as loopfile:
+        for tag_line in loop:
+            writer = csv.writer(loopfile, delimiter=';') 
+            writer.writerow(tag_line)
 
 
-
+   
 
 def main():
     dimensions = 3
 
     n_clusters = 20
 
-    opt_cutoff = 0.01
+    opt_cutoff = 0.1
 
     arr = gen_arr()
 
     cluster_size = 40
 
-#    arr = round_up_arr(arr, cluster_size * n_clusters)
-
     points = [Point(arr[i]) for i in range(len(arr))]
 
-    kmeans2(points, n_clusters, opt_cutoff, cluster_size) 
-    exit
+    clusters, iterations = kmeans2(points, n_clusters, opt_cutoff, cluster_size) 
 
-    clusters, iterations = kmeans(points, n_clusters, opt_cutoff, cluster_size)
+#    clusters, iterations = kmeans(points, n_clusters, opt_cutoff, cluster_size)
 
     fig = plt.figure()
     ax = fig.add_subplot(111,projection = '3d')
-    colors = ['r','w', 'k','m', 'c', 'g','y', 'b']
-    c = 'g'
-    n = 'o'
-
+    
+    cmap = get_cmap(n_clusters)
+    
     for i,cl in enumerate(clusters):
-        color_sel = colors[np.random.randint(0,7)]
         for p in cl.points:
-            print (" Cluster: ", i, "\t Point:", p, "\t Cluster size:", len(cl.points))
-            col = colors[(i%7)]
-            if i == 0:
-                col = colors[0]
-            if i == 1:
-                col = colors[1]
+#            print (" Cluster: ", i, "\t Point:", p, "\t Cluster size:", len(cl.points))
+            col = cmap(i)
             ax.scatter(p.coords[0], p.coords[1], p.coords[2], c = col)
-            #if i > 8:
-            #    break
+        for k,v in cl.p_dist:
+            write_csv_loop(i,k)
+
+
 
 
 
